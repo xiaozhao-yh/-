@@ -53,7 +53,7 @@ body {
 .wb2-top .tip-row .el-alert { flex: 1; min-width: 0; }
 .wb2-top .tip-row .el-alert__title { font-size: 13px; }
 .wb2-top .form-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
-.wb2-body { display: flex; gap: 14px; flex: 1; min-height: 0; flex-wrap: wrap; }
+.wb2-body { display: flex; gap: 14px; flex: 1; min-height: 0; flex-wrap: nowrap; }
 .wb2-left {
   width: 40%; min-width: 360px; flex-shrink: 0; background: #fff; border-radius: 10px;
   padding: 14px 16px; display: flex; flex-direction: column; overflow-y: auto;
@@ -153,6 +153,8 @@ body {
 .table-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
 .table-toolbar .grow { flex: 1; }
 .pager { margin-top: 14px; display: flex; justify-content: flex-end; }
+.score-num { font-weight: 600; color: #2a5298; margin-right: 6px; }
+.ai-disclaimer { margin: 2px 0 10px; }
 .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
 .stat-card {
   background: #fff; border-radius: 10px; padding: 18px; display: flex; align-items: center; gap: 14px;
@@ -222,7 +224,7 @@ body {
 .chat-msg .kb-refs { background: #fff; margin-top: 8px; max-width: 86%; }
 .chat-input { display: flex; gap: 10px; margin-top: 10px; flex-shrink: 0; }
 
-/* ===== 移动端适配 ===== */
+/* ===== 响应式适配 ===== */
 @media (max-width: 992px) {
   .app-aside .logo { font-size: 0; gap: 0; }
   .app-aside .logo .logo-text { display: none; }
@@ -230,16 +232,18 @@ body {
   .chart-row { grid-template-columns: 1fr; }
   .profile-cards { grid-template-columns: 1fr; }
   .app-main { padding: 10px; }
-}
-@media (max-width: 768px) {
+  /* 平板及以下：工作台单列布局，容器高度由内容决定，避免双栏挤压 */
   .wb2 { height: auto; min-height: 0; }
   .wb2-body { flex-direction: column; }
-  .wb2-left, .wb2-right { width: 100%; min-width: 0; }
+  .wb2-left, .wb2-right { width: 100%; min-width: 0; max-height: none; }
+  .wb2-left { overflow-y: visible; }
   .wb2-top .form-row .el-input, .wb2-top .form-row .el-select { flex: 1 1 150px; width: auto; }
-  .stat-cards { grid-template-columns: 1fr; }
-  .score-wrap { flex-direction: column; align-items: center; }
   .chat-pane { min-height: 0; }
   .chat-box { height: 46vh; min-height: 260px; flex: none; }
+}
+@media (max-width: 768px) {
+  .stat-cards { grid-template-columns: 1fr; }
+  .score-wrap { flex-direction: column; align-items: center; }
   .chat-msg .bubble { max-width: 96%; }
   .login-card { width: 92%; padding: 28px 20px 20px; }
   .app-header .header-title { font-size: 14px; }

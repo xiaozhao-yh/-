@@ -32,6 +32,8 @@ def dashboard(db: Session = Depends(get_db)):
     total_user_count = db.query(User).count()
     resume_count = db.query(Resume).count()
     ai_call_count = db.query(AiHistory).count()
+    failed_calls = db.query(AiHistory).filter(AiHistory.status == "failed").count()
+    fail_rate = round(failed_calls / ai_call_count * 100, 1) if ai_call_count else 0.0
 
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     today_calls = db.query(AiHistory).filter(AiHistory.created_at >= today).count()
@@ -76,6 +78,8 @@ def dashboard(db: Session = Depends(get_db)):
         "resume_count": resume_count,
         "ai_call_count": ai_call_count,
         "today_calls": today_calls,
+        "failed_calls": failed_calls,
+        "fail_rate": fail_rate,
         "type_stats": [{"name": k, "value": v} for k, v in type_stats.items()],
         "model_stats": [{"name": k, "value": v} for k, v in model_stats.items()],
         "trend": trend,

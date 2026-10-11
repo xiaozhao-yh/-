@@ -18,7 +18,11 @@ const AdminDashboard = {
         <div><div class="num">{{ stat.ai_call_count }}</div><div class="label">AI 调用总次数</div></div>
       </div>
       <div class="stat-card">
-        <div class="icon" style="background:linear-gradient(135deg,#f56c6c,#d63d3d)"><el-icon><TrendCharts/></el-icon></div>
+        <div class="icon" style="background:linear-gradient(135deg,#f56c6c,#d63d3d)"><el-icon><WarningFilled/></el-icon></div>
+        <div><div class="num">{{ stat.fail_rate || 0 }}%</div><div class="label">调用失败率（失败 {{ stat.failed_calls || 0 }} 次）</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="icon" style="background:linear-gradient(135deg,#909399,#6b6e75)"><el-icon><TrendCharts/></el-icon></div>
         <div><div class="num">{{ stat.today_calls }}</div><div class="label">今日 AI 调用</div></div>
       </div>
     </div>
@@ -54,6 +58,7 @@ const AdminDashboard = {
   </div>`,
   data() {
     return { stat: { user_count: 0, total_user_count: 0, resume_count: 0, ai_call_count: 0, today_calls: 0,
+      failed_calls: 0, fail_rate: 0,
       type_stats: [], model_stats: [], trend: [], recent: [] },
       typeMap: TYPE_MAP, typeColors: TYPE_COLORS };
   },

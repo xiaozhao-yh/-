@@ -17,17 +17,20 @@ const MyHistory = {
         <template #default="{row}"><el-tag :type="typeColors[row.type]" size="small">{{ typeMap[row.type] || row.type }}</el-tag></template>
       </el-table-column>
       <el-table-column prop="resume_title" label="简历标题" min-width="160" show-overflow-tooltip/>
-      <el-table-column prop="model" label="模型" width="120" show-overflow-tooltip/>
-      <el-table-column label="得分" min-width="130">
+      <el-table-column prop="model" label="模型" width="130" show-overflow-tooltip/>
+      <el-table-column label="得分" min-width="140">
         <template #default="{row}">
-          <span v-if="row.score !== null && row.score !== undefined" style="white-space:nowrap">{{ row.score }} 分 / {{ row.level }}</span>
+          <template v-if="row.score !== null && row.score !== undefined">
+            <span class="score-num">{{ row.score }} 分</span>
+            <el-tag size="small" :type="levelType(row.level)">{{ row.level }}</el-tag>
+          </template>
           <span v-else style="color:#c0c4cc">-</span>
         </template>
       </el-table-column>
       <el-table-column label="耗时" width="80">
         <template #default="{row}">{{ fmtDur(row.duration_ms) }}</template>
       </el-table-column>
-      <el-table-column label="时间" width="160">
+      <el-table-column label="时间" width="170">
         <template #default="{row}">{{ fmt(row.created_at) }}</template>
       </el-table-column>
       <el-table-column label="操作" width="90" fixed="right">
@@ -72,6 +75,9 @@ const MyHistory = {
   methods: {
     fmt: fmtTime,
     fmtDur: fmtDuration,
+    levelType(level) {
+      return ({ '优秀': 'success', '良好': 'primary', '合格': 'warning', '待改进': 'danger' })[level] || 'info';
+    },
     async load() {
       const seq = ++this.loadSeq;   // 序号守卫：快速翻页/切筛选时丢弃过期响应
       this.loading = true;

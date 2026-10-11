@@ -37,7 +37,7 @@ MAX_TURN_CHARS = 1500       # 单条历史消息最大长度
 
 
 def _save_history(db: Session, user: User, resume: Resume, cfg, scene: str, prompt_code: str,
-                  output: str, duration: int, score=None, level="", refs=None) -> AiHistory:
+                  output: str, duration: int, score=None, level="", refs=None, status: str = "success") -> AiHistory:
     rec = AiHistory(
         user_id=user.id,
         resume_id=resume.id if resume else None,
@@ -46,12 +46,12 @@ def _save_history(db: Session, user: User, resume: Resume, cfg, scene: str, prom
         type=scene,
         model=cfg.model_name if cfg else "",
         input_text=f"目标岗位：{resume.target_position if resume else ''}｜JD：{(resume.job_desc if resume else '')[:200]}｜简历摘要：{(resume.current_text if resume else '')[:1500]}",
-        output_text=output[:60000],
+        output_text=(output or "")[:60000],
         refs=json.dumps(refs or [], ensure_ascii=False),
         score=score,
         level=level or "",
         duration_ms=duration,
-        status="success",
+        status=status,
     )
     db.add(rec)
     db.commit()
@@ -77,9 +77,12 @@ def _with_kb(messages: list, kb_msg):
 
 def _stream_ai(user: User, resume: Resume, scene: str, config_id=None, prompt_id=None,
                temperature: float = 0.6):
-    """SSE 生成器：start → refs(RAG来源) → delta... → done，结果统一落库"""
+    """SSE 生成器：start → refs(RAG来源) → delta... → done，结果统一落库（含失败记录）"""
     def gen():
         db = SessionLocal()
+        cfg = None
+        tpl = None
+        start = time.time()
         try:
             yield _sse_event({"start": True})
             cfg = get_active_config(db, config_id)
@@ -90,7 +93,6 @@ def _stream_ai(user: User, resume: Resume, scene: str, config_id=None, prompt_id
                 build_messages(tpl.content, resume.current_text, resume.target_position, resume.job_desc),
                 kb_msg,
             )
-            start = time.time()
             buf = []
             for piece in iter_stream(cfg, messages, temperature):
                 buf.append(piece)
@@ -99,9 +101,12 @@ def _stream_ai(user: User, resume: Resume, scene: str, config_id=None, prompt_id
             rec = _save_history(db, user, resume, cfg, scene, tpl.code, output, elapsed_ms(start), refs=refs)
             yield _sse_event({"done": True, "record_id": rec.id, "duration_ms": rec.duration_ms})
         except LlmError as e:
+            _save_failed(db, user, resume, cfg, scene, tpl, str(e), start)
             yield _sse_event({"error": str(e)})
         except Exception as e:
-            yield _sse_event({"error": f"AI 服务异常：{e}"})
+            msg = f"AI 服务异常：{e}"
+            _save_failed(db, user, resume, cfg, scene, tpl, msg, start)
+            yield _sse_event({"error": msg})
         finally:
             db.close()
 
@@ -110,6 +115,19 @@ def _stream_ai(user: User, resume: Resume, scene: str, config_id=None, prompt_id
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
     )
+
+
+def _save_failed(db: Session, user: User, resume: Resume, cfg, scene: str, tpl, err: str, start: float):
+    """AI 调用失败也落库（status=failed），供管理端统计失败率；二次异常不阻塞错误返回"""
+    try:
+        db.rollback()
+        _save_history(db, user, resume, cfg, scene, tpl.code if tpl else "",
+                      f"调用失败：{err}", elapsed_ms(start), status="failed")
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
 
 @router.get("/options")
@@ -205,6 +223,9 @@ def _stream_chat(user: User, resume: Resume, data: ChatIn, config_id=None, promp
 
     def gen():
         db = SessionLocal()
+        cfg = None
+        tpl = None
+        start = time.time()
         try:
             yield _sse_event({"start": True})
             cfg = get_active_config(db, config_id)
@@ -216,7 +237,6 @@ def _stream_chat(user: User, resume: Resume, data: ChatIn, config_id=None, promp
             for t in _trim_history(data.history):
                 messages.append({"role": t["role"], "content": t["content"]})
             messages.append({"role": "user", "content": question})
-            start = time.time()
             buf = []
             for piece in iter_stream(cfg, messages, temperature=0.6):
                 buf.append(piece)
@@ -226,9 +246,12 @@ def _stream_chat(user: User, resume: Resume, data: ChatIn, config_id=None, promp
                                 f"问：{question}\n答：{output}", elapsed_ms(start), refs=refs)
             yield _sse_event({"done": True, "record_id": rec.id, "duration_ms": rec.duration_ms})
         except LlmError as e:
+            _save_failed(db, user, resume, cfg, "chat", tpl, str(e), start)
             yield _sse_event({"error": str(e)})
         except Exception as e:
-            yield _sse_event({"error": f"AI 服务异常：{e}"})
+            msg = f"AI 服务异常：{e}"
+            _save_failed(db, user, resume, cfg, "chat", tpl, msg, start)
+            yield _sse_event({"error": msg})
         finally:
             db.close()
 

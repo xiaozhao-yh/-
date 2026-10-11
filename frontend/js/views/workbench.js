@@ -10,7 +10,7 @@ const Workbench = {
     <div class="wb2-top">
       <div class="tip-row">
         <el-alert type="info" :closable="false" show-icon
-          title="上传简历后，系统会解析文本，并将其作为后续 AI 诊断、优化和改写的当前版本"/>
+          title="使用流程：上传/粘贴简历并保存 → 选择目标岗位 → 在右侧选择 AI 能力生成结果 → 历史记录页可随时回看。AI 生成内容仅供参考，请人工复核"/>
         <el-tag v-if="current" closable @close="clearCurrent" effect="dark" style="flex-shrink:0">
           当前简历：{{ current.title }}
         </el-tag>
@@ -71,6 +71,7 @@ const Workbench = {
               <el-button type="primary" :loading="scoring" @click="startScore"><el-icon><Odometer/></el-icon>生成评分</el-button>
               <span class="hint">结构化输出：0-100 分 + 等级 + 诊断分析</span>
             </div>
+            <el-alert class="ai-disclaimer" type="warning" :closable="false" show-icon title="AI 生成结果可能有误，需人工复核后使用"/>
             <div v-if="scoreResult" class="score-wrap">
               <div class="score-left">
                 <el-progress type="dashboard" :percentage="scoreResult.score" :width="130"
@@ -110,6 +111,7 @@ const Workbench = {
               </el-button>
               <span class="hint">流式输出：核心问题 + 岗位适配分析</span>
             </div>
+            <el-alert class="ai-disclaimer" type="warning" :closable="false" show-icon title="AI 生成结果可能有误，需人工复核后使用"/>
             <div v-if="streamText.analysis || streaming.analysis" ref="stream-analysis" class="stream-panel md-body"
               :class="{'stream-cursor': streaming.analysis}" v-html="$md(streamText.analysis)"></div>
             <div class="kb-refs" v-if="streamRefs.analysis.length">
@@ -139,6 +141,7 @@ const Workbench = {
               </el-button>
               <span class="hint">突出亮点 · 量化成果 · 删减冗余 · 关键词匹配 · 缺口分析</span>
             </div>
+            <el-alert class="ai-disclaimer" type="warning" :closable="false" show-icon title="AI 生成结果可能有误，需人工复核后使用"/>
             <div v-if="streamText.suggestion || streaming.suggestion" ref="stream-suggestion" class="stream-panel md-body"
               :class="{'stream-cursor': streaming.suggestion}" v-html="$md(streamText.suggestion)"></div>
             <div class="kb-refs" v-if="streamRefs.suggestion.length">
@@ -168,6 +171,7 @@ const Workbench = {
               </el-button>
               <span class="hint">生成候选版本，确认后采纳，不会自动覆盖原文</span>
             </div>
+            <el-alert class="ai-disclaimer" type="warning" :closable="false" show-icon title="AI 生成结果可能有误，需人工复核后使用"/>
             <div class="rewrite-actions" v-if="rewriteRecordId">
               <el-tag type="warning" effect="plain">候选版本已生成，尚未覆盖当前简历</el-tag>
               <el-button type="success" :loading="adopting" @click="adoptRewrite"><el-icon><CircleCheck/></el-icon>采纳为当前简历</el-button>
@@ -201,6 +205,7 @@ const Workbench = {
               </el-button>
               <span class="hint">基于当前简历与目标岗位，生成分类模拟面试题</span>
             </div>
+            <el-alert class="ai-disclaimer" type="warning" :closable="false" show-icon title="AI 生成结果可能有误，需人工复核后使用"/>
             <template v-if="interview">
               <el-collapse v-model="activeInterview">
                 <el-collapse-item v-for="(c, i) in interview" :key="i" :name="i">
@@ -239,6 +244,7 @@ const Workbench = {
                 </el-button>
                 <span class="hint">多轮对话自动携带上下文，AI 检索知识库辅助回答并标注来源</span>
               </div>
+              <el-alert class="ai-disclaimer" type="warning" :closable="false" show-icon title="AI 生成结果可能有误，需人工复核后使用"/>
               <div class="chat-box" ref="chat-box">
                 <el-empty v-if="!chatMessages.length" description="向 AI 简历助手提问，如：我的项目经历怎么写更有吸引力？" :image-size="80"/>
                 <div v-for="(m, i) in chatMessages" :key="i" class="chat-msg" :class="m.role">

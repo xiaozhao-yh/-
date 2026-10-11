@@ -25,9 +25,12 @@ const AdminHistory = {
         <template #default="{row}"><el-tag :type="typeColors[row.type]" size="small">{{ typeMap[row.type] || row.type }}</el-tag></template>
       </el-table-column>
       <el-table-column prop="model" label="模型" width="130" show-overflow-tooltip/>
-      <el-table-column label="得分" min-width="130">
+      <el-table-column label="得分" min-width="140">
         <template #default="{row}">
-          <span v-if="row.score !== null && row.score !== undefined" style="white-space:nowrap">{{ row.score }} 分 / {{ row.level }}</span>
+          <template v-if="row.score !== null && row.score !== undefined">
+            <span class="score-num">{{ row.score }} 分</span>
+            <el-tag size="small" :type="levelType(row.level)">{{ row.level }}</el-tag>
+          </template>
           <span v-else style="color:#c0c4cc">-</span>
         </template>
       </el-table-column>
@@ -81,6 +84,9 @@ const AdminHistory = {
   methods: {
     fmt: fmtTime,
     fmtDur: fmtDuration,
+    levelType(level) {
+      return ({ '优秀': 'success', '良好': 'primary', '合格': 'warning', '待改进': 'danger' })[level] || 'info';
+    },
     searchNow() {
       clearTimeout(this.searchTimer);
       this.searchTimer = setTimeout(() => { this.page = 1; this.load(); }, 300);
