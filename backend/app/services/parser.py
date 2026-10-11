@@ -74,6 +74,33 @@ def _parse_html(data: bytes) -> str:
     return text
 
 
+def sniff_resume_file(filename: str, data: bytes) -> None:
+    """上传文件安全检测：魔数校验（防扩展名伪造）+ Word 宏检测 + 二进制伪装检测"""
+    import io
+    import zipfile
+
+    ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
+    if ext == "pdf":
+        if not data[:8].startswith(b"%PDF-"):
+            raise HTTPException(status_code=400, detail="文件内容与 PDF 格式不符（疑似伪造扩展名），已拒绝")
+    elif ext == "docx":
+        if not zipfile.is_zipfile(io.BytesIO(data)):
+            raise HTTPException(status_code=400, detail="Word 文档格式异常或已损坏，已拒绝")
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                names = zf.namelist()
+        except zipfile.BadZipFile:
+            raise HTTPException(status_code=400, detail="Word 文档格式异常或已损坏，已拒绝")
+        if "[Content_Types].xml" not in names:
+            raise HTTPException(status_code=400, detail="不是有效的 Word(.docx) 文档，已拒绝")
+        for name in names:
+            if "vba" in name.lower():  # vbaProject.bin / vbaData.xml 等宏部件
+                raise HTTPException(status_code=400, detail="检测到文档包含 VBA 宏，为安全起见已拒绝，请另存为无宏的 .docx")
+    elif ext in ("txt", "html", "htm"):
+        if b"\x00" in data[:4096]:
+            raise HTTPException(status_code=400, detail="检测到二进制内容伪装为文本文件，已拒绝")
+
+
 def parse_resume_file(filename: str, data: bytes) -> str:
     ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
     if ext == "pdf":

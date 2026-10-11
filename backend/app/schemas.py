@@ -152,6 +152,19 @@ class AiOptionsIn(BaseModel):
     prompt_id: Optional[int] = None
 
 
+class ChatTurnIn(BaseModel):
+    role: str  # user / assistant
+    content: str
+
+
+class ChatIn(BaseModel):
+    """多轮对话：前端传最近对话历史，服务端校验并裁剪长度；可选指定模型与模板"""
+    question: str
+    history: list[ChatTurnIn] = []
+    config_id: Optional[int] = None
+    prompt_id: Optional[int] = None
+
+
 class RewriteAdoptIn(BaseModel):
     history_id: int
 
@@ -168,6 +181,7 @@ class HistoryOut(BaseModel):
     model: str
     input_text: str
     output_text: str
+    refs: Optional[str] = ""  # 旧行可能为 NULL（迁移前数据）
     score: Optional[int]
     level: str
     duration_ms: int

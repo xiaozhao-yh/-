@@ -5,22 +5,22 @@ const MyHistory = {
   template: `
   <div class="page-card">
     <div class="table-toolbar">
-      <el-select v-model="type" placeholder="全部类型" clearable style="width:150px" @change="load">
+      <el-select v-model="type" placeholder="全部类型" clearable style="width:150px" @change="search">
         <el-option v-for="(name, key) in typeMap" :key="key" :label="name" :value="key"/>
       </el-select>
       <el-button @click="load"><el-icon><Refresh/></el-icon>刷新</el-button>
       <div class="grow"></div>
       <span style="color:#909399;font-size:13px">共 {{ total }} 条 AI 调用记录</span>
     </div>
-    <el-table :data="items" v-loading="loading" stripe>
+    <el-table :data="items" v-loading="loading" stripe height="520">
       <el-table-column label="类型" width="110">
         <template #default="{row}"><el-tag :type="typeColors[row.type]" size="small">{{ typeMap[row.type] || row.type }}</el-tag></template>
       </el-table-column>
       <el-table-column prop="resume_title" label="简历标题" min-width="160" show-overflow-tooltip/>
       <el-table-column prop="model" label="模型" width="120" show-overflow-tooltip/>
-      <el-table-column label="得分" width="90">
+      <el-table-column label="得分" min-width="130">
         <template #default="{row}">
-          <span v-if="row.score !== null && row.score !== undefined">{{ row.score }} 分 / {{ row.level }}</span>
+          <span v-if="row.score !== null && row.score !== undefined" style="white-space:nowrap">{{ row.score }} 分 / {{ row.level }}</span>
           <span v-else style="color:#c0c4cc">-</span>
         </template>
       </el-table-column>
@@ -56,7 +56,7 @@ const MyHistory = {
   data() {
     return {
       typeMap: TYPE_MAP, typeColors: TYPE_COLORS,
-      items: [], total: 0, page: 1, pageSize: 10, type: '', loading: false,
+      items: [], total: 0, page: 1, pageSize: 10, type: '', loading: false, loadSeq: 0,
       drawer: false, detail: null,
     };
   },
@@ -73,14 +73,23 @@ const MyHistory = {
     fmt: fmtTime,
     fmtDur: fmtDuration,
     async load() {
+      const seq = ++this.loadSeq;   // 序号守卫：快速翻页/切筛选时丢弃过期响应
       this.loading = true;
       try {
         const d = await api.get('/ai/histories', { params: { page: this.page, page_size: this.pageSize, type: this.type } });
+        if (seq !== this.loadSeq) return;
+        // 页码越界（如删除/筛选后条数变少）：自动回退到最后一页
+        if (!d.items.length && this.page > 1 && d.total > 0) {
+          this.page = Math.max(1, Math.ceil(d.total / this.pageSize));
+          this.loading = false;
+          return this.load();
+        }
         this.items = d.items;
         this.total = d.total;
       } catch (e) { ElementPlus.ElMessage.error(e.message); }
-      this.loading = false;
+      if (seq === this.loadSeq) this.loading = false;
     },
+    search() { this.page = 1; this.load(); },
     showDetail(row) {
       this.detail = row;
       this.drawer = true;

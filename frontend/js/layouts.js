@@ -4,9 +4,10 @@
 const UserLayout = {
   template: `
   <el-container style="height:100%">
-    <el-aside width="220px" class="app-aside">
-      <div class="logo"><el-icon :size="20"><MagicStick/></el-icon>AI 简历优化助手</div>
-      <el-menu router :default-active="$route.path" background-color="#1f2d3d" text-color="#bfcbd9" active-text-color="#ffffff">
+    <el-aside :width="isMobile ? '64px' : '220px'" class="app-aside">
+      <div class="logo"><el-icon :size="20"><MagicStick/></el-icon><span class="logo-text">AI 简历优化助手</span></div>
+      <el-menu router :default-active="$route.path" :collapse="isMobile" :collapse-transition="false"
+        background-color="#1f2d3d" text-color="#bfcbd9" active-text-color="#ffffff">
         <el-menu-item index="/workbench"><el-icon><EditPen/></el-icon><span>简历优化工作台</span></el-menu-item>
         <el-menu-item index="/history"><el-icon><Clock/></el-icon><span>AI 历史记录</span></el-menu-item>
         <el-menu-item index="/profile"><el-icon><User/></el-icon><span>个人中心</span></el-menu-item>
@@ -33,6 +34,7 @@ const UserLayout = {
       <el-main class="app-main"><router-view /></el-main>
     </el-container>
   </el-container>`,
+  data() { return { isMobile: window.innerWidth < 992 }; },
   computed: {
     user() { return getStoredUser(); },
     avatarUrl() { return this.user && this.user.avatar ? API_BASE + this.user.avatar : ''; },
@@ -41,7 +43,10 @@ const UserLayout = {
       return m[this.$route.path] || '';
     },
   },
+  mounted() { window.addEventListener('resize', this.onResize); },
+  beforeUnmount() { window.removeEventListener('resize', this.onResize); },
   methods: {
+    onResize() { this.isMobile = window.innerWidth < 992; },
     onCmd(c) {
       if (c === 'profile') this.$router.push('/profile');
       if (c === 'logout') { clearStoredLogin(); this.$router.push('/login'); }
@@ -52,9 +57,9 @@ const UserLayout = {
 const AdminLayout = {
   template: `
   <el-container style="height:100%">
-    <el-aside width="220px" class="app-aside">
-      <div class="logo"><el-icon :size="20"><Setting/></el-icon>AI 简历优化助手</div>
-      <el-menu :router="false" :default-active="$route.path" @select="onMenu"
+    <el-aside :width="isMobile ? '64px' : '220px'" class="app-aside">
+      <div class="logo"><el-icon :size="20"><Setting/></el-icon><span class="logo-text">AI 简历优化助手</span></div>
+      <el-menu :router="false" :default-active="$route.path" :collapse="isMobile" :collapse-transition="false" @select="onMenu"
         background-color="#1f2d3d" text-color="#bfcbd9" active-text-color="#ffffff">
         <el-menu-item index="/admin/dashboard"><el-icon><DataBoard/></el-icon><span>系统首页</span></el-menu-item>
         <el-menu-item index="/admin/users"><el-icon><UserFilled/></el-icon><span>用户管理</span></el-menu-item>
@@ -85,6 +90,7 @@ const AdminLayout = {
       <el-main class="app-main"><router-view /></el-main>
     </el-container>
   </el-container>`,
+  data() { return { isMobile: window.innerWidth < 992 }; },
   computed: {
     user() { return getStoredUser(); },
     avatarUrl() { return this.user && this.user.avatar ? API_BASE + this.user.avatar : ''; },
@@ -94,7 +100,10 @@ const AdminLayout = {
       return m[this.$route.path] || '';
     },
   },
+  mounted() { window.addEventListener('resize', this.onResize); },
+  beforeUnmount() { window.removeEventListener('resize', this.onResize); },
   methods: {
+    onResize() { this.isMobile = window.innerWidth < 992; },
     onMenu(index) {
       if (index === 'logout') { clearStoredLogin(); this.$router.push('/login'); return; }
       if (index !== this.$route.path) this.$router.push(index);

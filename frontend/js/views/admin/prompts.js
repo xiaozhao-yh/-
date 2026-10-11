@@ -48,7 +48,7 @@ const AdminPrompts = {
     <div class="pager">
       <el-pagination background layout="total, prev, pager, next, sizes" :total="total"
         v-model:current-page="page" v-model:page-size="pageSize"
-        :page-sizes="[10, 20, 50]" @current-change="load" @size-change="load"/>
+        :page-sizes="[10, 20, 50]" @change="load"/>
     </div>
 
     <el-dialog v-model="dialog" :title="editing ? '编辑模板' : '新增模板'" width="760px" top="6vh">
@@ -81,7 +81,7 @@ const AdminPrompts = {
   data() {
     return {
       sceneMap: SCENE_MAP,
-      items: [], total: 0, page: 1, pageSize: 10, loading: false,
+      items: [], total: 0, page: 1, pageSize: 10, loading: false, loadSeq: 0,
       q: { name: '', code: '', scene: '' },
       selection: [],
       dialog: false, editing: null, saving: false,
@@ -94,15 +94,22 @@ const AdminPrompts = {
     onSel(rows) { this.selection = rows; },
     doSearch() { this.page = 1; this.load(); },
     async load() {
+      const seq = ++this.loadSeq;   // 序号守卫：丢弃过期响应
       this.loading = true;
       try {
         const d = await api.get('/admin/prompts', {
           params: { page: this.page, page_size: this.pageSize, name: this.q.name, code: this.q.code, scene: this.q.scene },
         });
+        if (seq !== this.loadSeq) return;
+        if (!d.items.length && this.page > 1 && d.total > 0) {   // 页码越界回退
+          this.page = Math.max(1, Math.ceil(d.total / this.pageSize));
+          this.loading = false;
+          return this.load();
+        }
         this.items = d.items;
         this.total = d.total;
       } catch (e) { ElementPlus.ElMessage.error(e.message); }
-      this.loading = false;
+      if (seq === this.loadSeq) this.loading = false;
     },
     openCreate() {
       this.editing = null;

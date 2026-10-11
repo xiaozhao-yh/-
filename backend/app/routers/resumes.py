@@ -11,7 +11,7 @@ from ..deps import get_current_user, get_db
 from ..models import Resume, User
 from ..schemas import Page, ResumeCreate, ResumeOut, ResumeUpdate
 from ..services.exporter import export_resume_docx
-from ..services.parser import normalize_text, parse_resume_file
+from ..services.parser import normalize_text, parse_resume_file, sniff_resume_file
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])
 
@@ -85,6 +85,7 @@ async def upload_resume(
     data = await file.read()
     if len(data) > MAX_UPLOAD_SIZE:
         raise HTTPException(status_code=400, detail="文件大小不能超过 10MB")
+    sniff_resume_file(file.filename, data)
     text = parse_resume_file(file.filename, data)
     resume = Resume(
         user_id=user.id,
@@ -118,6 +119,7 @@ async def reparse_resume(
     data = await file.read()
     if len(data) > MAX_UPLOAD_SIZE:
         raise HTTPException(status_code=400, detail="文件大小不能超过 10MB")
+    sniff_resume_file(file.filename, data)
     text = parse_resume_file(file.filename, data)
     resume.original_text = text
     resume.current_text = text

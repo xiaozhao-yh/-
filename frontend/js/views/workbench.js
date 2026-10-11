@@ -1,7 +1,7 @@
 /* 简历优化工作台 v2：顶部选择/上传解析 + 左侧简历文本 + 右侧五大 AI 能力（可选模型与Prompt模板） */
 /* global Vue, api, streamSSE, authDownload, fmtTime, LEVEL_COLORS, ElementPlus */
 
-const SCENES = ['score', 'analysis', 'suggestion', 'rewrite', 'interview'];
+const SCENES = ['score', 'analysis', 'suggestion', 'rewrite', 'interview', 'chat'];
 
 const Workbench = {
   template: `
@@ -28,6 +28,8 @@ const Workbench = {
         <el-button type="danger" plain :disabled="!current" @click="removeResume"><el-icon><Delete/></el-icon>删除</el-button>
         <el-button plain :disabled="!current" @click="openJd"><el-icon><Document/></el-icon>岗位JD</el-button>
       </div>
+      <el-progress v-if="parsing && uploadPct > 0" :percentage="uploadPct" :stroke-width="6"
+        :status="uploadPct >= 100 ? 'success' : ''" style="margin-top:10px"/>
     </div>
 
     <div class="wb2-body">
@@ -81,6 +83,14 @@ const Workbench = {
               </div>
               <div class="md-body" style="flex:1;min-width:0" v-html="$md(scoreResult.analysis)"></div>
             </div>
+            <div class="kb-refs" v-if="scoreResult && scoreResult.references && scoreResult.references.length">
+              <div class="kb-refs-head"><el-icon><Collection/></el-icon>知识库参考来源</div>
+              <div class="kb-ref" v-for="(r, i) in scoreResult.references" :key="i">
+                <el-tag size="small" effect="plain">{{ r.title }}</el-tag>
+                <span class="kb-snippet">{{ r.snippet }}</span>
+                <span class="kb-score">相关度 {{ Math.round(r.score * 100) }}%</span>
+              </div>
+            </div>
             <el-empty v-else-if="!scoring" description="点击「生成评分」获取结构化评分结果" :image-size="80"/>
           </el-tab-pane>
 
@@ -102,6 +112,14 @@ const Workbench = {
             </div>
             <div v-if="streamText.analysis || streaming.analysis" ref="stream-analysis" class="stream-panel md-body"
               :class="{'stream-cursor': streaming.analysis}" v-html="$md(streamText.analysis)"></div>
+            <div class="kb-refs" v-if="streamRefs.analysis.length">
+              <div class="kb-refs-head"><el-icon><Collection/></el-icon>知识库参考来源</div>
+              <div class="kb-ref" v-for="(r, i) in streamRefs.analysis" :key="i">
+                <el-tag size="small" effect="plain">{{ r.title }}</el-tag>
+                <span class="kb-snippet">{{ r.snippet }}</span>
+                <span class="kb-score">相关度 {{ Math.round(r.score * 100) }}%</span>
+              </div>
+            </div>
             <el-empty v-else description="点击「生成分析」，AI 将流式输出简历存在的问题" :image-size="80"/>
           </el-tab-pane>
 
@@ -123,6 +141,14 @@ const Workbench = {
             </div>
             <div v-if="streamText.suggestion || streaming.suggestion" ref="stream-suggestion" class="stream-panel md-body"
               :class="{'stream-cursor': streaming.suggestion}" v-html="$md(streamText.suggestion)"></div>
+            <div class="kb-refs" v-if="streamRefs.suggestion.length">
+              <div class="kb-refs-head"><el-icon><Collection/></el-icon>知识库参考来源</div>
+              <div class="kb-ref" v-for="(r, i) in streamRefs.suggestion" :key="i">
+                <el-tag size="small" effect="plain">{{ r.title }}</el-tag>
+                <span class="kb-snippet">{{ r.snippet }}</span>
+                <span class="kb-score">相关度 {{ Math.round(r.score * 100) }}%</span>
+              </div>
+            </div>
             <el-empty v-else description="点击「生成建议」，获得可执行的修改建议与岗位适配分析" :image-size="80"/>
           </el-tab-pane>
 
@@ -148,6 +174,14 @@ const Workbench = {
             </div>
             <div v-if="streamText.rewrite || streaming.rewrite" ref="stream-rewrite" class="stream-panel plain-text"
               :class="{'stream-cursor': streaming.rewrite}">{{ streamText.rewrite }}</div>
+            <div class="kb-refs" v-if="streamRefs.rewrite.length">
+              <div class="kb-refs-head"><el-icon><Collection/></el-icon>知识库参考来源</div>
+              <div class="kb-ref" v-for="(r, i) in streamRefs.rewrite" :key="i">
+                <el-tag size="small" effect="plain">{{ r.title }}</el-tag>
+                <span class="kb-snippet">{{ r.snippet }}</span>
+                <span class="kb-score">相关度 {{ Math.round(r.score * 100) }}%</span>
+              </div>
+            </div>
             <el-empty v-else description="点击「生成改写」，AI 将输出完整改写简历（轻度润色 / STAR / 专业化三种模板可选）" :image-size="80"/>
           </el-tab-pane>
 
@@ -177,7 +211,57 @@ const Workbench = {
                 </el-collapse-item>
               </el-collapse>
             </template>
+            <div class="kb-refs" v-if="interviewRefs.length">
+              <div class="kb-refs-head"><el-icon><Collection/></el-icon>知识库参考来源</div>
+              <div class="kb-ref" v-for="(r, i) in interviewRefs" :key="i">
+                <el-tag size="small" effect="plain">{{ r.title }}</el-tag>
+                <span class="kb-snippet">{{ r.snippet }}</span>
+                <span class="kb-score">相关度 {{ Math.round(r.score * 100) }}%</span>
+              </div>
+            </div>
             <el-empty v-else-if="!interviewLoading" description="点击「生成面试题」开始模拟面试" :image-size="80"/>
+          </el-tab-pane>
+
+          <!-- 助手对话（多轮上下文 + 知识库检索） -->
+          <el-tab-pane label="助手对话" name="chat" lazy>
+            <div class="chat-pane">
+              <div class="ai-toolbar">
+                <span class="lbl">模型配置</span>
+                <el-select v-model="configId" placeholder="默认（最新启用配置）" style="width:210px" clearable>
+                  <el-option v-for="c in options.configs" :key="c.id" :label="c.provider + ' · ' + c.model_name" :value="c.id"/>
+                </el-select>
+                <span class="lbl">Prompt模板</span>
+                <el-select v-model="promptSel.chat" placeholder="默认模板" style="width:230px" clearable>
+                  <el-option v-for="p in promptsOf('chat')" :key="p.id" :label="p.name + '（' + p.code + '）'" :value="p.id"/>
+                </el-select>
+                <el-button type="danger" plain :disabled="!chatMessages.length" @click="clearChat">
+                  <el-icon><Delete/></el-icon>清空对话
+                </el-button>
+                <span class="hint">多轮对话自动携带上下文，AI 检索知识库辅助回答并标注来源</span>
+              </div>
+              <div class="chat-box" ref="chat-box">
+                <el-empty v-if="!chatMessages.length" description="向 AI 简历助手提问，如：我的项目经历怎么写更有吸引力？" :image-size="80"/>
+                <div v-for="(m, i) in chatMessages" :key="i" class="chat-msg" :class="m.role">
+                  <div class="bubble">
+                    <div v-if="m.role === 'assistant'" class="md-body" v-html="$md(m.content)"></div>
+                    <template v-else>{{ m.content }}</template>
+                  </div>
+                  <div class="kb-refs" v-if="m.role === 'assistant' && m.refs && m.refs.length">
+                    <div class="kb-refs-head"><el-icon><Collection/></el-icon>知识库来源</div>
+                    <div class="kb-ref" v-for="(r, j) in m.refs" :key="j">
+                      <el-tag size="small" effect="plain">{{ r.title }}</el-tag>
+                      <span class="kb-snippet">{{ r.snippet }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="chat-input">
+                <el-input v-model="chatInput" placeholder="输入问题，Enter 发送" maxlength="1500" clearable @keyup.enter="sendChat"/>
+                <el-button type="primary" :loading="chatting" :disabled="!current" @click="sendChat">
+                  <el-icon><Promotion/></el-icon>发送
+                </el-button>
+              </div>
+            </div>
           </el-tab-pane>
         </el-tabs>
       </div>
@@ -205,12 +289,15 @@ const Workbench = {
       showJd: false, savingJd: false, jdForm: { job_desc: '' },
       options: { configs: [], prompts: [] },
       configId: null,
-      promptSel: { score: null, analysis: null, suggestion: null, rewrite: null, interview: null },
+      promptSel: { score: null, analysis: null, suggestion: null, rewrite: null, interview: null, chat: null },
       scoring: false, scoreResult: null,
       streaming: { analysis: false, suggestion: false, rewrite: false },
       streamText: { analysis: '', suggestion: '', rewrite: '' },
+      streamRefs: { analysis: [], suggestion: [], rewrite: [] },
       rewriteRecordId: null, adopting: false,
-      interviewLoading: false, interview: null, activeInterview: [0],
+      interviewLoading: false, interview: null, activeInterview: [0], interviewRefs: [],
+      chatMessages: [], chatInput: '', chatting: false,
+      uploadPct: 0,
     };
   },
   mounted() {
@@ -240,7 +327,7 @@ const Workbench = {
       } catch (e) { /* 选择器加载失败不阻塞主流程 */ }
     },
     async onSelectChange(id) {
-      if (Object.values(this.streaming).some(Boolean)) {
+      if (Object.values(this.streaming).some(Boolean) || this.chatting) {
         ElementPlus.ElMessage.warning('AI 正在生成中，请等待完成后再切换简历');
         await this.$nextTick();
         this.selectedId = this.current ? this.current.id : null;
@@ -260,8 +347,11 @@ const Workbench = {
       this.editText = d.current_text;
       this.scoreResult = null;
       this.streamText = { analysis: '', suggestion: '', rewrite: '' };
+      this.streamRefs = { analysis: [], suggestion: [], rewrite: [] };
       this.rewriteRecordId = null;
       this.interview = null;
+      this.interviewRefs = [];
+      this.chatMessages = [];
     },
     clearCurrent() {
       this.current = null;
@@ -270,8 +360,11 @@ const Workbench = {
       this.editText = '';
       this.scoreResult = null;
       this.streamText = { analysis: '', suggestion: '', rewrite: '' };
+      this.streamRefs = { analysis: [], suggestion: [], rewrite: [] };
       this.rewriteRecordId = null;
       this.interview = null;
+      this.interviewRefs = [];
+      this.chatMessages = [];
     },
     onPickFile(file) {
       if (file && file.raw) this.doUpload(file.raw);
@@ -279,6 +372,8 @@ const Workbench = {
     async doUpload(rawFile) {
       if (!this.form.title.trim()) { ElementPlus.ElMessage.warning('请先填写简历标题'); return; }
       this.parsing = true;
+      this.uploadPct = 0;
+      const onProgress = (e) => { if (e.total) this.uploadPct = Math.round((e.loaded / e.total) * 100); };
       try {
         let d;
         if (this.current) {
@@ -288,13 +383,13 @@ const Workbench = {
           });
           const fd = new FormData();
           fd.append('file', rawFile);
-          d = await api.post('/resumes/' + this.current.id + '/parse', fd);
+          d = await api.post('/resumes/' + this.current.id + '/parse', fd, { onUploadProgress: onProgress });
         } else {
           const fd = new FormData();
           fd.append('title', this.form.title);
           fd.append('target_position', this.form.target_position);
           fd.append('file', rawFile);
-          d = await api.post('/resumes/upload', fd);
+          d = await api.post('/resumes/upload', fd, { onUploadProgress: onProgress });
         }
         this.applyResume(d);
         await this.loadResumes();
@@ -381,6 +476,7 @@ const Workbench = {
       const self = this;
       this.streaming[kind] = true;
       this.streamText[kind] = '';
+      this.streamRefs[kind] = [];
       if (kind === 'rewrite') this.rewriteRecordId = null;
       this.saveSilent()
         .then(() => streamSSE('/api/ai/resumes/' + self.current.id + '/' + kind, self.optsBody(kind), {
@@ -391,6 +487,7 @@ const Workbench = {
               if (el) el.scrollTop = el.scrollHeight;
             });
           },
+          onRefs(refs) { self.streamRefs[kind] = refs || []; },
           onDone(evt) { if (kind === 'rewrite') self.rewriteRecordId = evt.record_id; },
           onError(msg) { ElementPlus.ElMessage.error(msg); },
         }))
@@ -417,9 +514,45 @@ const Workbench = {
         await this.saveSilent();
         const d = await api.post('/ai/resumes/' + this.current.id + '/interview', this.optsBody('interview'));
         this.interview = d.categories;
+        this.interviewRefs = d.references || [];
         this.activeInterview = [0];
       } catch (e) { ElementPlus.ElMessage.error(e.message); }
       this.interviewLoading = false;
+    },
+    clearChat() { this.chatMessages = []; },
+    async sendChat() {
+      const q = this.chatInput.trim();
+      if (!q) { ElementPlus.ElMessage.warning('请输入问题'); return; }
+      if (!this.current) { ElementPlus.ElMessage.warning('请先选择或上传简历'); return; }
+      if (this.chatting) return;
+      this.chatting = true;
+      this.chatInput = '';
+      const history = this.chatMessages.map((m) => ({ role: m.role, content: m.content }));
+      this.chatMessages.push({ role: 'user', content: q });
+      const reply = { role: 'assistant', content: '', refs: [] };
+      this.chatMessages.push(reply);
+      const self = this;
+      try {
+        await this.saveSilent();
+        await streamSSE('/api/ai/resumes/' + self.current.id + '/chat', {
+          question: q, history,
+          config_id: self.configId || null, prompt_id: self.promptSel.chat || null,
+        }, {
+          onDelta(d) {
+            reply.content += d;
+            self.$nextTick(() => {
+              const el = self.$refs['chat-box'];
+              if (el) el.scrollTop = el.scrollHeight;
+            });
+          },
+          onRefs(refs) { reply.refs = refs || []; },
+          onError(msg) { ElementPlus.ElMessage.error(msg); },
+        });
+      } catch (e) {
+        ElementPlus.ElMessage.error(e.message);
+        if (!reply.content) reply.content = '（生成失败：' + e.message + '）';
+      }
+      this.chatting = false;
     },
   },
 };

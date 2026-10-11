@@ -16,9 +16,10 @@ from app.seed_data import DEFAULT_AI_CONFIG, PROMPT_TEMPLATES, SAMPLE_RESUME  # 
 from app.security import hash_password  # noqa: E402
 
 
-def migrate_prompt_templates(conn):
-    """prompt_templates 结构迁移：补 scene/status 列"""
+def migrate(conn):
+    """结构迁移"""
     with conn.cursor() as cur:
+        # prompt_templates: 补 scene/status 列
         cur.execute(f"SHOW COLUMNS FROM {DB_NAME}.prompt_templates")
         cols = {row[0] for row in cur.fetchall()}
         if "scene" not in cols:
@@ -34,6 +35,15 @@ def migrate_prompt_templates(conn):
                 "ADD COLUMN status TINYINT(1) NOT NULL DEFAULT 1"
             )
             print("  - 已迁移：prompt_templates 增加 status 列")
+        # ai_histories: 补 refs 列（RAG 来源）
+        cur.execute(f"SHOW COLUMNS FROM {DB_NAME}.ai_histories")
+        cols = {row[0] for row in cur.fetchall()}
+        if "refs" not in cols:
+            cur.execute(f"ALTER TABLE {DB_NAME}.ai_histories ADD COLUMN refs TEXT")
+            print("  - 已迁移：ai_histories 增加 refs 列")
+        # 存量行 refs 可能为 NULL，统一置为 '[]'，避免序列化报错
+        cur.execute(f"UPDATE {DB_NAME}.ai_histories SET refs='[]' WHERE refs IS NULL")
+        conn.commit()
 
 
 def main():
@@ -54,11 +64,11 @@ def main():
     Base.metadata.create_all(engine)
     print("[2/5] 数据表创建完成")
 
-    # 3. 结构迁移（prompt_templates: scene/status）
+    # 3. 结构迁移（prompt_templates: scene/status；ai_histories: refs）
     conn = pymysql.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD,
                            database=DB_NAME, charset="utf8mb4")
     try:
-        migrate_prompt_templates(conn)
+        migrate(conn)
         conn.commit()
         print("[3/5] 结构迁移完成")
     finally:

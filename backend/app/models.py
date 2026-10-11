@@ -67,6 +67,19 @@ class PromptTemplate(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
 
 
+class KnowledgeChunk(Base):
+    """知识库片段：简历优化领域知识，embedding 后用于 RAG 检索"""
+    __tablename__ = "knowledge_chunks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(100))          # 来源标题（UI 展示引用）
+    content: Mapped[str] = mapped_column(Text)                # 片段正文
+    tag: Mapped[str] = mapped_column(String(30), default="")  # 主题标签
+    embedding: Mapped[str] = mapped_column(Text, default="")  # 向量 JSON（懒生成，空=待嵌入）
+    enabled: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
 class AiHistory(Base):
     """AI 调用历史：所有 AI 结果统一落库，用 type 区分场景"""
     __tablename__ = "ai_histories"
@@ -76,10 +89,11 @@ class AiHistory(Base):
     resume_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
     resume_title: Mapped[str] = mapped_column(String(100), default="")
     prompt_code: Mapped[str] = mapped_column(String(50), default="")
-    type: Mapped[str] = mapped_column(String(20), index=True)  # score/analysis/suggestion/rewrite/interview
+    type: Mapped[str] = mapped_column(String(20), index=True)  # score/analysis/suggestion/rewrite/interview/chat
     model: Mapped[str] = mapped_column(String(100), default="")
     input_text: Mapped[str] = mapped_column(Text, default="")   # 输入摘要（截断保存）
     output_text: Mapped[str] = mapped_column(Text, default="")  # 模型完整输出 / 结构化JSON
+    refs: Mapped[str] = mapped_column(Text, default="")         # RAG 检索到的知识库来源 JSON
     score: Mapped[int] = mapped_column(Integer, nullable=True)  # 仅评分场景
     level: Mapped[str] = mapped_column(String(20), default="")  # 仅评分场景
     duration_ms: Mapped[int] = mapped_column(Integer, default=0)

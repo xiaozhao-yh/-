@@ -72,6 +72,7 @@ async function streamSSE(path, body, handlers) {
       let evt;
       try { evt = JSON.parse(line.slice(5).trim()); } catch (e) { continue; }
       if (evt.error) { if (handlers.onError) handlers.onError(evt.error); return; }
+      if (evt.refs && handlers.onRefs) handlers.onRefs(evt.refs);
       if (evt.delta && handlers.onDelta) handlers.onDelta(evt.delta);
       if (evt.done && handlers.onDone) handlers.onDone(evt);
     }
@@ -99,9 +100,9 @@ function renderMd(text) {
   catch (e) { return '<pre>' + (text || '') + '</pre>'; }
 }
 
-const TYPE_MAP = { score: '简历评分', analysis: '问题分析', suggestion: '简历优化', rewrite: '简历改写', interview: '面试问题' };
-const TYPE_COLORS = { score: '', analysis: 'warning', suggestion: 'success', rewrite: 'danger', interview: 'info' };
-const SCENE_MAP = { score: '简历评分', analysis: '问题分析', suggestion: '简历优化', rewrite: '简历改写', interview: '面试问题' };
+const TYPE_MAP = { score: '简历评分', analysis: '问题分析', suggestion: '简历优化', rewrite: '简历改写', interview: '面试问题', chat: '对话助手' };
+const TYPE_COLORS = { score: '', analysis: 'warning', suggestion: 'success', rewrite: 'danger', interview: 'info', chat: 'success' };
+const SCENE_MAP = { score: '简历评分', analysis: '问题分析', suggestion: '简历优化', rewrite: '简历改写', interview: '面试问题', chat: '对话助手' };
 const LEVEL_COLORS = { 优秀: '#67c23a', 良好: '#409eff', 合格: '#e6a23c', 待改进: '#f56c6c' };
 
 function fmtTime(s) {

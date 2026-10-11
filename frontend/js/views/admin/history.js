@@ -17,7 +17,7 @@ const AdminHistory = {
       <div class="grow"></div>
       <span style="color:#909399;font-size:13px">共 {{ total }} 条记录</span>
     </div>
-    <el-table :data="items" v-loading="loading" stripe>
+    <el-table :data="items" v-loading="loading" stripe height="520">
       <el-table-column prop="id" label="ID" width="70"/>
       <el-table-column prop="username" label="用户" width="110"/>
       <el-table-column prop="resume_title" label="简历标题" min-width="150" show-overflow-tooltip/>
@@ -25,9 +25,9 @@ const AdminHistory = {
         <template #default="{row}"><el-tag :type="typeColors[row.type]" size="small">{{ typeMap[row.type] || row.type }}</el-tag></template>
       </el-table-column>
       <el-table-column prop="model" label="模型" width="130" show-overflow-tooltip/>
-      <el-table-column label="得分" width="100">
+      <el-table-column label="得分" min-width="130">
         <template #default="{row}">
-          <span v-if="row.score !== null && row.score !== undefined">{{ row.score }} 分 / {{ row.level }}</span>
+          <span v-if="row.score !== null && row.score !== undefined" style="white-space:nowrap">{{ row.score }} 分 / {{ row.level }}</span>
           <span v-else style="color:#c0c4cc">-</span>
         </template>
       </el-table-column>
@@ -64,7 +64,7 @@ const AdminHistory = {
     return {
       typeMap: TYPE_MAP, typeColors: TYPE_COLORS,
       users: [],
-      items: [], total: 0, page: 1, pageSize: 10, loading: false, searchTimer: null,
+      items: [], total: 0, page: 1, pageSize: 10, loading: false, searchTimer: null, loadSeq: 0,
       filters: { user_id: null, resume_title: '', model: '', type: '' },
       drawer: false, detail: null,
     };
@@ -91,14 +91,21 @@ const AdminHistory = {
       catch (e) { /* ignore */ }
     },
     async load() {
+      const seq = ++this.loadSeq;   // 序号守卫：丢弃过期响应
       this.loading = true;
       try {
         const params = Object.assign({ page: this.page, page_size: this.pageSize }, this.filters);
         const d = await api.get('/admin/ai-histories', { params });
+        if (seq !== this.loadSeq) return;
+        if (!d.items.length && this.page > 1 && d.total > 0) {   // 页码越界回退
+          this.page = Math.max(1, Math.ceil(d.total / this.pageSize));
+          this.loading = false;
+          return this.load();
+        }
         this.items = d.items;
         this.total = d.total;
       } catch (e) { ElementPlus.ElMessage.error(e.message); }
-      this.loading = false;
+      if (seq === this.loadSeq) this.loading = false;
     },
     async showDetail(id) {
       try {

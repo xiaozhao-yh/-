@@ -69,7 +69,7 @@ const AdminUsers = {
   data() {
     return {
       API_BASE: window.API_BASE,
-      items: [], total: 0, page: 1, pageSize: 10, keyword: '', loading: false, searchTimer: null,
+      items: [], total: 0, page: 1, pageSize: 10, keyword: '', loading: false, searchTimer: null, loadSeq: 0,
       dialog: false, editing: false, editingId: null, saving: false,
       form: { username: '', password: '', nickname: '', email: '', phone: '', role: 'user' },
     };
@@ -82,13 +82,20 @@ const AdminUsers = {
       this.searchTimer = setTimeout(() => { this.page = 1; this.load(); }, 300);
     },
     async load() {
+      const seq = ++this.loadSeq;   // 序号守卫：丢弃过期响应
       this.loading = true;
       try {
         const d = await api.get('/admin/users', { params: { page: this.page, page_size: this.pageSize, keyword: this.keyword } });
+        if (seq !== this.loadSeq) return;
+        if (!d.items.length && this.page > 1 && d.total > 0) {   // 页码越界回退
+          this.page = Math.max(1, Math.ceil(d.total / this.pageSize));
+          this.loading = false;
+          return this.load();
+        }
         this.items = d.items;
         this.total = d.total;
       } catch (e) { ElementPlus.ElMessage.error(e.message); }
-      this.loading = false;
+      if (seq === this.loadSeq) this.loading = false;
     },
     openCreate() {
       this.editing = false;

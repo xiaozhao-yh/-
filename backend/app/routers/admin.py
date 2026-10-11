@@ -22,7 +22,7 @@ from ..security import hash_password
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
-VALID_SCENES = {"score", "analysis", "suggestion", "rewrite", "interview"}
+VALID_SCENES = {"score", "analysis", "suggestion", "rewrite", "interview", "chat"}
 
 
 # ---------- 系统首页 / 数据看板 ----------
