@@ -15,6 +15,11 @@ const AdminModels = {
       <el-table-column prop="provider" label="服务商" width="170" show-overflow-tooltip/>
       <el-table-column prop="base_url" label="接口地址" min-width="240" show-overflow-tooltip/>
       <el-table-column prop="model_name" label="模型名称" width="130"/>
+      <el-table-column label="RAG 配置" width="160">
+        <template #default="{row}">
+          <span style="font-variant-numeric:tabular-nums">top-{{ row.kb_top_k || 3 }} / ≥{{ (row.kb_min_score || 0.30).toFixed(2) }}</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="api_key" label="API Key" width="180" show-overflow-tooltip/>
       <el-table-column label="启用状态" width="100">
         <template #default="{row}">
@@ -45,6 +50,14 @@ const AdminModels = {
           <el-input v-model="form.model_name" placeholder="如：qwen-plus / qwen-max / deepseek-chat"/>
         </el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" maxlength="100"/></el-form-item>
+        <el-form-item label="知识库检索 TOP_K" required>
+          <el-input-number v-model="form.kb_top_k" :min="1" :max="10" label-position="top" controls-position="right"/>
+          <div class="hint">RAG 最终返回给 AI 的知识库片段数量（默认 3）</div>
+        </el-form-item>
+        <el-form-item label="知识库最低相似度阈值" required>
+          <el-input-number v-model="form.kb_min_score" :min="0.05" :max="0.95" :step="0.05" :precision="2" controls-position="right"/>
+          <div class="hint">低于此阈值的片段不会注入 prompt（默认 0.30）</div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialog = false">取消</el-button>
@@ -55,7 +68,7 @@ const AdminModels = {
   data() {
     return {
       items: [], loading: false, dialog: false, editing: false, editingId: null, saving: false,
-      form: { provider: '阿里云百炼 DashScope', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', api_key: '', model_name: 'qwen-plus', remark: '' },
+      form: { provider: '阿里云百炼 DashScope', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', api_key: '', model_name: 'qwen-plus', remark: '', kb_top_k: 3, kb_min_score: 0.30 },
     };
   },
   mounted() { this.load(); },
@@ -69,13 +82,13 @@ const AdminModels = {
     },
     openCreate() {
       this.editing = false;
-      this.form = { provider: '阿里云百炼 DashScope', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', api_key: '', model_name: 'qwen-plus', remark: '' };
+      this.form = { provider: '阿里云百炼 DashScope', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', api_key: '', model_name: 'qwen-plus', remark: '', kb_top_k: 3, kb_min_score: 0.30 };
       this.dialog = true;
     },
     openEdit(row) {
       this.editing = true;
       this.editingId = row.id;
-      this.form = { provider: row.provider, base_url: row.base_url, api_key: row.api_key, model_name: row.model_name, remark: row.remark };
+      this.form = { provider: row.provider, base_url: row.base_url, api_key: row.api_key, model_name: row.model_name, remark: row.remark, kb_top_k: row.kb_top_k || 3, kb_min_score: row.kb_min_score || 0.30 };
       this.dialog = true;
     },
     async save() {

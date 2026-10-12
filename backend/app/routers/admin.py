@@ -182,6 +182,7 @@ def list_ai_configs(db: Session = Depends(get_db)):
             "id": c.id, "provider": c.provider, "base_url": c.base_url,
             "api_key": _mask_key(c.api_key), "model_name": c.model_name,
             "is_enabled": c.is_enabled, "remark": c.remark,
+            "kb_top_k": c.kb_top_k, "kb_min_score": c.kb_min_score,
             "created_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S"),
         }
         out.append(d)
@@ -199,6 +200,8 @@ def create_ai_config(data: AiConfigIn, db: Session = Depends(get_db)):
         model_name=data.model_name.strip(),
         is_enabled=False,
         remark=data.remark.strip(),
+        kb_top_k=data.kb_top_k,
+        kb_min_score=data.kb_min_score,
     )
     db.add(cfg)
     db.commit()
@@ -214,6 +217,8 @@ def update_ai_config(config_id: int, data: AiConfigIn, db: Session = Depends(get
     cfg.base_url = data.base_url.strip()
     cfg.model_name = data.model_name.strip()
     cfg.remark = data.remark.strip()
+    cfg.kb_top_k = data.kb_top_k
+    cfg.kb_min_score = data.kb_min_score
     # 未修改 Key（脱敏占位或为空）时保留原 Key
     if data.api_key.strip() and "****" not in data.api_key:
         cfg.api_key = data.api_key.strip()

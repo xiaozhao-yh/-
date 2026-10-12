@@ -101,6 +101,8 @@ class AiConfigIn(BaseModel):
     api_key: str = ""
     model_name: str = "qwen-plus"
     remark: str = ""
+    kb_top_k: int = 3
+    kb_min_score: float = 0.30
 
 
 class AiConfigOut(BaseModel):
@@ -113,6 +115,8 @@ class AiConfigOut(BaseModel):
     model_name: str
     is_enabled: bool
     remark: str
+    kb_top_k: int
+    kb_min_score: float
     created_at: datetime
 
 

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Env & secrets
+.env
+.env.local
+.venv/
+venv/
+
+# Build artifacts
+*.log
+*.sqlite
+*.sqlite3
+
+# Backend uploads
+backend/uploads/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Node (frontend CDN so no node_modules)
+node_modules/

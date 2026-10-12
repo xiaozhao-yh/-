@@ -211,8 +211,8 @@ def _trim_history(history) -> list:
     """服务端裁剪：角色白名单、单条限长、只保留最近 MAX_HISTORY_TURNS 条"""
     turns = []
     for t in history or []:
-        role = t.role if isinstance(t, dict) else t.role
-        content = (t.content if isinstance(t, dict) else t.content) or ""
+        role = t.get("role", "") if isinstance(t, dict) else getattr(t, "role", "")
+        content = (t.get("content", "") if isinstance(t, dict) else getattr(t, "content", "")) or ""
         if role in ("user", "assistant") and content.strip():
             turns.append({"role": role, "content": content.strip()[:MAX_TURN_CHARS]})
     return turns[-MAX_HISTORY_TURNS:]

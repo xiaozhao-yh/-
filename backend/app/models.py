@@ -1,7 +1,7 @@
 """数据库模型：用户、简历、AI模型配置、Prompt模板、AI历史记录"""
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -51,6 +51,8 @@ class AiConfig(Base):
     model_name: Mapped[str] = mapped_column(String(100), default="qwen-plus")
     is_enabled: Mapped[bool] = mapped_column(default=False)
     remark: Mapped[str] = mapped_column(String(255), default="")
+    kb_top_k: Mapped[int] = mapped_column(Integer, default=3)         # RAG 检索 top-K 候选
+    kb_min_score: Mapped[float] = mapped_column(Float, default=0.30)  # RAG 检索最低相似度阈值
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
@@ -75,6 +77,10 @@ class KnowledgeChunk(Base):
     title: Mapped[str] = mapped_column(String(100))          # 来源标题（UI 展示引用）
     content: Mapped[str] = mapped_column(Text)                # 片段正文
     tag: Mapped[str] = mapped_column(String(30), default="")  # 主题标签
+    source_url: Mapped[str] = mapped_column(String(500), default="")    # 原始来源链接（便于跳转审计）
+    source_id: Mapped[str] = mapped_column(String(100), default="")     # 外部来源 ID（如爬取的文档 ID）
+    offset: Mapped[int] = mapped_column(Integer, default=0)             # 在原始文档中的起始偏移（字节/段落数）
+    created_by: Mapped[str] = mapped_column(String(50), default="seed") # 创建人/来源渠道：seed/admin/api
     embedding: Mapped[str] = mapped_column(Text, default="")  # 向量 JSON（懒生成，空=待嵌入）
     enabled: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

@@ -374,6 +374,8 @@ DEFAULT_AI_CONFIG = {
     "api_key": "sk-29633d2a883d4f7ab7bae094afa1f1d1",
     "model_name": "qwen-plus",
     "is_enabled": True,
+    "kb_top_k": 3,
+    "kb_min_score": 0.30,
     "remark": "默认模型配置，可在管理后台修改",
 }
 

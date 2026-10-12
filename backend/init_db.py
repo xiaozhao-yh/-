@@ -43,6 +43,27 @@ def migrate(conn):
             print("  - 已迁移：ai_histories 增加 refs 列")
         # 存量行 refs 可能为 NULL，统一置为 '[]'，避免序列化报错
         cur.execute(f"UPDATE {DB_NAME}.ai_histories SET refs='[]' WHERE refs IS NULL")
+        # knowledge_chunks: 补来源/审计字段
+        cur.execute(f"SHOW COLUMNS FROM {DB_NAME}.knowledge_chunks")
+        cols = {row[0] for row in cur.fetchall()}
+        for col, typ in [
+            ("source_url", "VARCHAR(500) NOT NULL DEFAULT ''"),
+            ("source_id", "VARCHAR(100) NOT NULL DEFAULT ''"),
+            ("offset", "INT NOT NULL DEFAULT 0"),
+            ("created_by", "VARCHAR(50) NOT NULL DEFAULT 'seed'"),
+        ]:
+            if col not in cols:
+                cur.execute(f"ALTER TABLE {DB_NAME}.knowledge_chunks ADD COLUMN {col} {typ}")
+                print(f"  - 已迁移：knowledge_chunks 增加 {col} 列")
+        # ai_configs: 补 RAG 检索配置（kb_top_k / kb_min_score）
+        cur.execute(f"SHOW COLUMNS FROM {DB_NAME}.ai_configs")
+        cols = {row[0] for row in cur.fetchall()}
+        if "kb_top_k" not in cols:
+            cur.execute(f"ALTER TABLE {DB_NAME}.ai_configs ADD COLUMN kb_top_k INT NOT NULL DEFAULT 3")
+            print("  - 已迁移：ai_configs 增加 kb_top_k 列")
+        if "kb_min_score" not in cols:
+            cur.execute(f"ALTER TABLE {DB_NAME}.ai_configs ADD COLUMN kb_min_score FLOAT NOT NULL DEFAULT 0.30")
+            print("  - 已迁移：ai_configs 增加 kb_min_score 列")
         conn.commit()
 
 
